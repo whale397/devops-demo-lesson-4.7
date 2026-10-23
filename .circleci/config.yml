@@ -1,9 +1,6 @@
 version: 2.1
 
 jobs:
-  # ==========================================
-  # BUILD JOB - Compile and package
-  # ==========================================
   build:
     docker:
       - image: cimg/openjdk:21.0
@@ -27,9 +24,6 @@ jobs:
           paths:
             - target/*.jar
 
-  # ==========================================
-  # TEST JOB - Run automated tests
-  # ==========================================
   test:
     docker:
       - image: cimg/openjdk:21.0
@@ -49,9 +43,6 @@ jobs:
       - store_artifacts:
           path: target/surefire-reports
 
-  # ==========================================
-  # PUBLISH JOB - Build and push Docker image
-  # ==========================================
   publish:
     docker:
       - image: cimg/base:stable
@@ -73,11 +64,19 @@ jobs:
             echo "Pushing image to Docker Hub..."
             docker push $DOCKER_USERNAME/devops-demo:latest
 
-# ==========================================
-# WORKFLOW - Run jobs in sequence
-# ==========================================
+  deploy:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - run:
+          name: Redeploy latest image on Railway
+          command: |
+            echo "Asking Railway to redeploy the latest image..."
+            npx --yes @railway/cli redeploy --service "$RAILWAY_SERVICE_ID" --yes
+            echo "Railway is now pulling $DOCKER_USERNAME/devops-demo:latest from Docker Hub."
+
 workflows:
-  build_test_publish:
+  build_test_publish_deploy:
     jobs:
       - build
       - test:
@@ -87,3 +86,6 @@ workflows:
           context: docker-hub
           requires:
             - test
+      - deploy:
+          requires:
+            - publish
